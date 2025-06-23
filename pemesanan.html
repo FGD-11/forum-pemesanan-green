@@ -1,0 +1,456 @@
+<html lang="id" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Form Pemesanan Produk Herbal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
+  />
+  <script type="module">
+    // Import Firebase modules from CDN (v10 modular)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      serverTimestamp,
+      getDocs,
+    } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+    // Firebase config (provided)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCARBpXY5wh4YfkDpfX2EUDGiONAhTC2K4",
+      authDomain: "forum-gmimemberenterprise.firebaseapp.com",
+      projectId: "forum-gmimemberenterprise",
+      storageBucket: "forum-gmimemberenterprise.firebasestorage.app",
+      messagingSenderId: "165376465785",
+      appId: "1:165376465785:web:cf8142a4761de06117ada8"
+    };
+
+    // Initialize Firebase app and Firestore
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const produkContainer = document.getElementById("produkContainer");
+      const notif = document.getElementById("notif");
+      const totalHargaEl = document.getElementById("totalHarga");
+      const metodeBRICheckbox = document.getElementById("metodeBRI");
+      const metodeOnlineCheckbox = document.getElementById("metodeOnline");
+      const rekeningBRI = document.getElementById("rekeningBRI");
+      const setujuCheckbox = document.getElementById("setuju");
+      const submitBtn = document.getElementById("submitBtn");
+      const form = document.getElementById("orderForm");
+
+      // Format number to IDR currency
+      function formatRupiah(number) {
+        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(number);
+      }
+
+      // Show/hide rekening BRI number based on checkbox
+      function updateRekeningBRI() {
+        if (metodeBRICheckbox.checked) {
+          rekeningBRI.classList.remove("hidden");
+        } else {
+          rekeningBRI.classList.add("hidden");
+        }
+      }
+      metodeBRICheckbox.addEventListener("change", () => {
+        if (metodeBRICheckbox.checked) {
+          metodeOnlineCheckbox.checked = false;
+        }
+        updateRekeningBRI();
+      });
+      metodeOnlineCheckbox.addEventListener("change", () => {
+        if (metodeOnlineCheckbox.checked) {
+          metodeBRICheckbox.checked = false;
+        }
+        updateRekeningBRI();
+      });
+
+      // Update total harga real-time
+      function updateTotalHarga() {
+        let total = 0;
+        const produkCheckboxes = produkContainer.querySelectorAll("input[type=checkbox]");
+        produkCheckboxes.forEach((checkbox) => {
+          if (checkbox.checked) {
+            const harga = parseInt(checkbox.dataset.harga);
+            const jumlahInput = checkbox.parentElement.parentElement.querySelector("input[type=number]");
+            let jumlah = parseInt(jumlahInput.value);
+            if (isNaN(jumlah) || jumlah < 1) jumlah = 1;
+            total += harga * jumlah;
+          }
+        });
+        totalHargaEl.textContent = formatRupiah(total);
+      }
+
+      // Fungsi untuk menampilkan produk setelah diambil dari Firestore
+      function tampilkanProduk(produkList) {
+        produkContainer.innerHTML = "";
+        produkList.forEach((produk, index) => {
+          const row = document.createElement("div");
+          row.className = "flex flex-col sm:flex-row sm:items-center sm:space-x-4 border-b border-gray-200 py-3";
+
+          // Checkbox + product name + price container
+          const leftDiv = document.createElement("div");
+          leftDiv.className = "flex items-center space-x-3 flex-1";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.id = `produk-${index}`;
+          checkbox.name = "produk";
+          checkbox.value = produk.nama;
+          checkbox.dataset.harga = produk.harga;
+          checkbox.className = "w-6 h-6 text-green-600 border-gray-300 rounded focus:ring-green-500";
+
+          const label = document.createElement("label");
+          label.htmlFor = `produk-${index}`;
+          label.className = "text-gray-800 font-medium select-none text-sm sm:text-base";
+          label.textContent = produk.nama;
+
+          const priceSpan = document.createElement("span");
+          priceSpan.className = "ml-2 text-green-700 font-semibold whitespace-nowrap text-sm sm:text-base";
+          priceSpan.textContent = formatRupiah(produk.harga);
+
+          leftDiv.appendChild(checkbox);
+          leftDiv.appendChild(label);
+          leftDiv.appendChild(priceSpan);
+
+          // Input jumlah container
+          const rightDiv = document.createElement("div");
+          rightDiv.className = "mt-2 sm:mt-0 flex items-center space-x-2";
+
+          const jumlahLabel = document.createElement("span");
+          jumlahLabel.textContent = "Jumlah:";
+          jumlahLabel.className = "text-gray-700 font-medium text-sm";
+
+          const jumlahInput = document.createElement("input");
+          jumlahInput.type = "number";
+          jumlahInput.min = "1";
+          jumlahInput.value = "1";
+          jumlahInput.disabled = true;
+          jumlahInput.className = "w-20 p-1 border border-gray-300 rounded text-center disabled:bg-gray-100 disabled:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm";
+
+          // Enable/disable jumlah input based on checkbox
+          checkbox.addEventListener("change", () => {
+            jumlahInput.disabled = !checkbox.checked;
+            if (!checkbox.checked) {
+              jumlahInput.value = "1";
+            }
+            updateTotalHarga();
+          });
+
+          // Update total harga on jumlah input change
+          jumlahInput.addEventListener("input", () => {
+            if (jumlahInput.value === "" || parseInt(jumlahInput.value) < 1) {
+              jumlahInput.value = "1";
+            }
+            updateTotalHarga();
+          });
+
+          rightDiv.appendChild(jumlahLabel);
+          rightDiv.appendChild(jumlahInput);
+
+          row.appendChild(leftDiv);
+          row.appendChild(rightDiv);
+
+          produkContainer.appendChild(row);
+        });
+        updateTotalHarga();
+      }
+
+      // Ambil produk dari Firestore
+      async function loadProdukDariFirestore() {
+        try {
+          const produkSnapshot = await getDocs(collection(db, "produk"));
+          const produkList = [];
+
+          produkSnapshot.forEach((doc) => {
+            const data = doc.data();
+            // Jika ada field aktif dan ingin filter, bisa ditambahkan di sini
+            if (data.nama && typeof data.harga === "number") {
+              produkList.push({ nama: data.nama, harga: data.harga });
+            }
+          });
+
+          if (produkList.length === 0) {
+            produkContainer.innerHTML = '<p class="text-center text-gray-500">Belum ada produk tersedia.</p>';
+          } else {
+            tampilkanProduk(produkList);
+          }
+        } catch (error) {
+          produkContainer.innerHTML = '<p class="text-center text-red-600">Gagal memuat produk. Coba muat ulang halaman.</p>';
+          console.error("Error load produk:", error);
+        }
+      }
+
+      // Panggil fungsi saat halaman dimuat
+      loadProdukDariFirestore();
+
+      // Form submit handler
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        notif.textContent = "";
+        notif.className = "";
+        submitBtn.disabled = true;
+        submitBtn.classList.add("opacity-50", "cursor-not-allowed");
+
+        // Ambil data pemesan
+        const nama = form.nama.value.trim();
+        const wa = form.wa.value.trim();
+        const email = form.email.value.trim();
+
+        // Ambil data alamat
+        const alamat = {
+          jalan: form.jalan.value.trim(),
+          rt_rw: form.rt_rw.value.trim(),
+          kelurahan: form.kelurahan.value.trim(),
+          kecamatan: form.kecamatan.value.trim(),
+          kota: form.kota.value.trim(),
+          provinsi: form.provinsi.value.trim(),
+          kode_pos: form.kode_pos.value.trim(),
+        };
+
+        // Validasi data pemesan
+        if (!nama) {
+          notif.textContent = "Nama lengkap wajib diisi.";
+          notif.className = "text-red-600 mb-4";
+          form.nama.focus();
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
+          return;
+        }
+        if (!wa || !/^\d{9,15}$/.test(wa)) {
+          notif.textContent = "Nomor WhatsApp aktif wajib diisi (9-15 digit angka).";
+          notif.className = "text-red-600 mb-4";
+          form.wa.focus();
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
+          return;
+        }
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          notif.textContent = "Email valid wajib diisi.";
+          notif.className = "text-red-600 mb-4";
+          form.email.focus();
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
+          return;
+        }
+        // Validasi alamat lengkap (minimal jalan, kelurahan, kecamatan, kota, provinsi, kode pos)
+        if (!alamat.jalan || !alamat.kelurahan || !alamat.kecamatan || !alamat.kota || !alamat.provinsi || !alamat.kode_pos) {
+          notif.textContent = "Alamat lengkap wajib diisi dengan benar.";
+          notif.className = "text-red-600 mb-4";
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
+          return;
+        }
+
+        // Ambil produk yang dipilih dan jumlahnya
+        const produkCheckboxes = produkContainer.querySelectorAll("input[type=checkbox]");
+        const produkTerpilih = [];
+        produkCheckboxes.forEach((checkbox) => {
+          if (checkbox.checked) {
+            const harga = parseInt(checkbox.dataset.harga);
+            const jumlahInput = checkbox.parentElement.parentElement.querySelector("input[type=number]");
+            let jumlah = parseInt(jumlahInput.value);
+            if (isNaN(jumlah) || jumlah < 1) jumlah = 1;
+            produkTerpilih.push({
+              nama: checkbox.value,
+              harga,
+              jumlah,
+            });
+          }
+        });
+
+        if (produkTerpilih.length === 0) {
+          notif.textContent = "Minimal satu produk harus dipilih.";
+          notif.className = "text-red-600 mb-4";
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
+          return;
+        }
+
+        // Catatan khusus dan nomor referensi
+        const pesanKhusus = form.pesanKhusus.value.trim();
+        const referensi = form.referensi.value.trim();
+
+        // Metode pembayaran validasi
+        let metodePembayaran = null;
+        if (metodeBRICheckbox.checked) metodePembayaran = "meminta tinjau BRI";
+        else if (metodeOnlineCheckbox.checked) metodePembayaran = "meminta tinjau Whatsapp";
+        if (!metodePembayaran) {
+          notif.textContent = "Pilih metode pembayaran.";
+          notif.className = "text-red-600 mb-4";
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
+          return;
+        }
+
+        // Persetujuan syarat & ketentuan
+        if (!setujuCheckbox.checked) {
+          notif.textContent = "Anda harus menyetujui syarat & ketentuan.";
+          notif.className = "text-red-600 mb-4";
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
+          return;
+        }
+
+        // Hitung total harga
+        let totalHarga = 0;
+        produkTerpilih.forEach(p => {
+          totalHarga += p.harga * p.jumlah;
+        });
+
+        // Siapkan data untuk Firestore
+        const dataToSave = {
+          nama,
+          wa,
+          email,
+          alamat,
+          produk: produkTerpilih,
+          totalHarga,
+          pesanKhusus,
+          metodePembayaran,
+          referensi: referensi || null,
+          status: "pending",
+          timestamp: serverTimestamp(),
+        };
+
+        try {
+          // Simpan data ke koleksi "pembelian"
+          await addDoc(collection(db, "pembelian"), dataToSave);
+
+          // Tampilkan notifikasi sukses
+          window.location.href = "sukses.html";
+          notif.className = "text-green-600 mb-4";
+
+          // Reset form dan total harga
+          form.reset();
+          updateTotalHarga();
+          updateRekeningBRI();
+        } catch (error) {
+          // Tampilkan notifikasi error
+          notif.textContent = "Terjadi kesalahan saat mengirim data. Silakan coba lagi.";
+          notif.className = "text-red-600 mb-4";
+          console.error("Firestore error:", error);
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
+        }
+      });
+    });
+  </script>
+  <style>
+    /* Fix for better mobile scroll inside produkContainer */
+    #produkContainer {
+      -webkit-overflow-scrolling: touch;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center p-4">
+  <main class="w-full max-w-lg bg-white rounded-lg shadow-md p-6">
+    <h1 class="text-2xl sm:text-3xl font-semibold text-green-700 mb-8 text-center leading-tight">
+      FORMULIR PEMESANAN HERBAL
+    </h1>
+    <form id="orderForm" class="space-y-8" novalidate>
+      <!-- Bagian A: Informasi Pemesan -->
+      <section aria-labelledby="infoPemesanTitle" class="border border-gray-300 rounded p-4 shadow-sm">
+        <h2 id="infoPemesanTitle" class="text-lg sm:text-xl font-semibold text-green-700 mb-4">A. Informasi Pemesan</h2>
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label for="nama" class="block mb-1 font-medium text-gray-700">Nama Lengkap <span class="text-red-600">*</span></label>
+            <input type="text" id="nama" name="nama" required placeholder="Masukkan nama lengkap" class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          </div>
+          <div>
+            <label for="wa" class="block mb-1 font-medium text-gray-700">Nomor WhatsApp Aktif <span class="text-red-600">*</span></label>
+            <input type="tel" id="wa" name="wa" required placeholder="Contoh: 081234567890" pattern="^\d{9,15}$" class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          </div>
+          <div>
+            <label for="email" class="block mb-1 font-medium text-gray-700">Email <span class="text-red-600">*</span></label>
+            <input type="email" id="email" name="email" required placeholder="contoh@email.com" class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          </div>
+          <div>
+            <label for="jalan" class="block mb-1 font-medium text-gray-700">Jalan/Blok <span class="text-red-600">*</span></label>
+            <input type="text" id="jalan" name="jalan" required placeholder="Jalan/Blok" class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          </div>
+          <div>
+            <label for="rt_rw" class="block mb-1 font-medium text-gray-700">RT/RW</label>
+            <input type="text" id="rt_rw" name="rt_rw" placeholder="RT/RW" class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          </div>
+          <div>
+            <label for="kelurahan" class="block mb-1 font-medium text-gray-700">Kelurahan <span class="text-red-600">*</span></label>
+            <input type="text" id="kelurahan" name="kelurahan" required placeholder="Kelurahan" class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          </div>
+          <div>
+            <label for="kecamatan" class="block mb-1 font-medium text-gray-700">Kecamatan <span class="text-red-600">*</span></label>
+            <input type="text" id="kecamatan" name="kecamatan" required placeholder="Kecamatan" class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          </div>
+          <div>
+            <label for="kota" class="block mb-1 font-medium text-gray-700">Kota/Kabupaten <span class="text-red-600">*</span></label>
+            <input type="text" id="kota" name="kota" required placeholder="Kota/Kabupaten" class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          </div>
+          <div>
+            <label for="provinsi" class="block mb-1 font-medium text-gray-700">Provinsi <span class="text-red-600">*</span></label>
+            <input type="text" id="provinsi" name="provinsi" required placeholder="Provinsi" class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          </div>
+          <div>
+            <label for="kode_pos" class="block mb-1 font-medium text-gray-700">Kode Pos <span class="text-red-600">*</span></label>
+            <input type="text" id="kode_pos" name="kode_pos" required placeholder="Kode Pos" class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Bagian B: Detail Pesanan -->
+      <section aria-labelledby="detailPesananTitle" class="border border-gray-300 rounded p-4 shadow-sm">
+        <h2 id="detailPesananTitle" class="text-lg sm:text-xl font-semibold text-green-700 mb-4">B. Detail Pesanan</h2>
+        <div id="produkContainer" class="max-h-72 overflow-y-auto border border-gray-200 rounded p-3 bg-white mb-4">
+          <!-- Produk akan di-generate secara dinamis -->
+          <p class="text-center text-gray-500">Memuat produk...</p>
+        </div>
+        <div class="mb-4">
+          <label for="pesanKhusus" class="block mb-1 font-medium text-gray-700">Catatan / Pesan Khusus</label>
+          <textarea id="pesanKhusus" name="pesanKhusus" rows="3" placeholder="Masukkan catatan atau pesan khusus" class="w-full p-2 border border-gray-300 rounded resize-none focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"></textarea>
+        </div>
+        <div>
+          <label for="referensi" class="block mb-1 font-medium text-gray-700">Nomor Referensi (Opsional)</label>
+          <input type="text" id="referensi" name="referensi" placeholder="Nomor referensi sistem referral" class="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm" />
+        </div>
+      </section>
+
+      <!-- Bagian C: Metode Pembayaran -->
+      <section aria-labelledby="metodePembayaranTitle" class="border border-gray-300 rounded p-4 shadow-sm">
+        <h2 id="metodePembayaranTitle" class="text-lg sm:text-xl font-semibold text-green-700 mb-4">C. Metode Pembayaran</h2>
+        <div class="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-6">
+          <label class="inline-flex items-center space-x-2">
+            <input type="checkbox" id="metodeBRI" name="metodePembayaran" value="BRI" class="w-6 h-6 text-green-600 border-gray-300 rounded focus:ring-green-500" />
+            <span class="text-gray-800 font-medium text-sm sm:text-base">Transfer Bank (BRI)</span>
+          </label>
+          <label class="inline-flex items-center space-x-2">
+            <input type="checkbox" id="metodeOnline" name="metodePembayaran" value="Online" class="w-6 h-6 text-green-600 border-gray-300 rounded focus:ring-green-500" />
+            <span class="text-gray-800 font-medium text-sm sm:text-base">Konfirmasi Whatsapp</span>
+          </label>
+        </div>
+        <div id="rekeningBRI" class="mt-4 p-4 bg-green-50 border border-green-300 rounded text-green-700 font-semibold select-text hidden text-sm sm:text-base">
+          Nomor Rekening BRI: <span class="font-mono">1234-5678-9012-3456</span> a.n. Hardiyanto
+        </div>
+      </section>
+
+      <!-- Bagian D: Persetujuan & Submit -->
+      <section aria-labelledby="persetujuanTitle" class="border border-gray-300 rounded p-4 shadow-sm">
+        <h2 id="persetujuanTitle" class="text-lg sm:text-xl font-semibold text-green-700 mb-4">D. Persetujuan & Submit</h2>
+        <label class="inline-flex items-center space-x-2 mb-6">
+          <input type="checkbox" id="setuju" name="setuju" class="w-6 h-6 text-green-600 border-gray-300 rounded focus:ring-green-500" />
+          <span class="text-gray-800 text-sm sm:text-base">Saya menyatakan setuju dengan <a href="syarat.html" class="text-green-600 underline hover:text-green-800" target="_blank" rel="noopener noreferrer">syarat & ketentuan</a>.</span>
+        </label>
+        <button href="selesai.html" id="submitBtn" type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-green-300 text-base sm:text-lg">
+          Kirim Pesanan
+        </button>
+        <p class="mt-4 text-lg font-semibold text-gray-800 text-center">Total Harga: <span id="totalHarga" class="text-green-700">Rp0</span></p>
+        <div id="notif" role="alert" aria-live="polite" class="min-h-[1.5rem] mt-3 text-center text-sm sm:text-base"></div>
+      </section>
+    </form>
+  </main>
+</body>
+</html>

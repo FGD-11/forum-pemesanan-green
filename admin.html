@@ -1,0 +1,179 @@
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard - Manajemen Produk & Pesanan</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+  <script defer type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      getDocs,
+      updateDoc,
+      deleteDoc,
+      doc,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCARBpXY5wh4YfkDpfX2EUDGiONAhTC2K4",
+      authDomain: "forum-gmimemberenterprise.firebaseapp.com",
+      projectId: "forum-gmimemberenterprise",
+      storageBucket: "forum-gmimemberenterprise.appspot.com",
+      messagingSenderId: "165376465785",
+      appId: "1:165376465785:web:cf8142a4761de06117ada8"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const produkList = document.getElementById("produkList");
+    const produkForm = document.getElementById("produkForm");
+
+    function renderProduk(docData, id) {
+      const row = document.createElement("tr");
+      row.classList.add("even:bg-gray-50");
+      row.innerHTML = `
+        <td class="border p-2 break-words max-w-xs">${docData.nama}</td>
+        <td class="border p-2 whitespace-nowrap">Rp${docData.harga.toLocaleString()}</td>
+        <td class="border p-2 flex gap-2 justify-center">
+          <button aria-label="Edit produk ${docData.nama}" class="edit-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded flex items-center gap-1" data-id="${id}">
+            <i class="fas fa-edit"></i> Edit
+          </button>
+          <button aria-label="Hapus produk ${docData.nama}" class="delete-btn bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded flex items-center gap-1" data-id="${id}">
+            <i class="fas fa-trash-alt"></i> Hapus
+          </button>
+        </td>
+      `;
+      produkList.appendChild(row);
+    }
+
+    async function loadProduk() {
+      produkList.innerHTML = "";
+      const snapshot = await getDocs(collection(db, "produk"));
+      snapshot.forEach(doc => renderProduk(doc.data(), doc.id));
+    }
+
+    produkForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const nama = produkForm.nama.value.trim();
+      const harga = parseInt(produkForm.harga.value);
+      if (!nama || isNaN(harga) || harga < 0) return alert("Isi nama & harga dengan benar!");
+      await addDoc(collection(db, "produk"), { nama, harga });
+      produkForm.reset();
+      loadProduk();
+    });
+
+    produkList.addEventListener("click", async (e) => {
+      const id = e.target.closest("button")?.dataset.id;
+      if (!id) return;
+      if (e.target.closest(".delete-btn")) {
+        if (confirm("Hapus produk ini?")) {
+          await deleteDoc(doc(db, "produk", id));
+          loadProduk();
+        }
+      } else if (e.target.closest(".edit-btn")) {
+        const namaBaru = prompt("Nama produk baru:");
+        if (namaBaru === null) return;
+        const hargaInput = prompt("Harga baru:");
+        if (hargaInput === null) return;
+        const hargaBaru = parseInt(hargaInput);
+        if (namaBaru.trim() && !isNaN(hargaBaru) && hargaBaru >= 0) {
+          await updateDoc(doc(db, "produk", id), { nama: namaBaru.trim(), harga: hargaBaru });
+          loadProduk();
+        } else {
+          alert("Input tidak valid!");
+        }
+      }
+    });
+
+    // Manajemen Pesanan
+    const pesananList = document.getElementById("pesananList");
+    onSnapshot(collection(db, "pembelian"), (snapshot) => {
+      pesananList.innerHTML = "";
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const row = document.createElement("tr");
+        row.classList.add("even:bg-gray-50");
+        row.innerHTML = `
+          <td class="border p-2 break-words max-w-xs">${data.nama}</td>
+          <td class="border p-2 whitespace-nowrap">${data.wa}</td>
+          <td class="border p-2 whitespace-nowrap">${data.metodePembayaran}</td>
+          <td class="border p-2 whitespace-nowrap">Rp${data.totalHarga.toLocaleString()}</td>
+          
+        `;
+        pesananList.appendChild(row);
+      });
+    });
+
+    loadProduk();
+  </script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+  <div class="max-w-5xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+    <h1 class="text-3xl font-extrabold text-center mb-8 text-gray-800">Admin Dashboard</h1>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-4 text-gray-700">Manajemen Produk</h2>
+      <form id="produkForm" class="flex flex-col sm:flex-row gap-3 mb-6">
+        <input
+          name="nama"
+          placeholder="Nama Produk"
+          class="border border-gray-300 p-3 rounded-md flex-grow focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+          aria-label="Nama Produk"
+        />
+        <input
+          name="harga"
+          type="number"
+          min="0"
+          placeholder="Harga"
+          class="border border-gray-300 p-3 rounded-md w-full sm:w-40 focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+          aria-label="Harga Produk"
+        />
+        <button
+          type="submit"
+          class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-md transition"
+          aria-label="Tambah Produk"
+        >
+          <i class="fas fa-plus mr-2"></i> Tambah
+        </button>
+      </form>
+      <div class="overflow-x-auto rounded-md border border-gray-300">
+        <table class="w-full table-auto text-left">
+          <thead class="bg-gray-200 text-gray-700">
+            <tr>
+              <th class="border p-3">Nama</th>
+              <th class="border p-3 w-32">Harga</th>
+              <th class="border p-3 w-48 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="produkList" class="text-gray-800"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-2xl font-semibold mb-4 text-gray-700">Manajemen Pesanan</h2>
+      <div class="overflow-x-auto rounded-md border border-gray-300">
+        <table class="w-full table-auto text-left">
+          <thead class="bg-gray-200 text-gray-700">
+            <tr>
+              <th class="border p-3">Nama</th>
+              <th class="border p-3 w-36">WA</th>
+              <th class="border p-3 w-40">Pembayaran</th>
+              <th class="border p-3 w-32">Total</th>
+              
+            </tr>
+          </thead>
+          <tbody id="pesananList" class="text-gray-800"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
