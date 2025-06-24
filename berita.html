@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Berita Terbaru</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      getDocs,
+      query,
+      orderBy
+    } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+      // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+      const firebaseConfig = {
+        apiKey: "AIzaSyADOJKmKBSoxPrglsZI_jT5Zlslo8Xy76k",
+        authDomain: "hallowed-tea-458904-c3.firebaseapp.com",
+        projectId: "hallowed-tea-458904-c3",
+        storageBucket: "hallowed-tea-458904-c3.firebasestorage.app",
+        messagingSenderId: "593516531927",
+        appId: "1:593516531927:web:04228cd5d8f2130d9fe092",
+        measurementId: "G-N4WQDR1W9D"
+      };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const beritaListEl = document.getElementById("beritaList");
+    const kategoriLinks = document.querySelectorAll(".kategori-link");
+
+    async function loadBerita(kategori = "") {
+      beritaListEl.innerHTML = "<p class='text-gray-500'>Memuat berita...</p>";
+      let q = query(collection(db, "news"), orderBy("timestamp", "desc"));
+
+      const querySnapshot = await getDocs(q);
+      let hasil = [];
+
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        if (!kategori || data.kategori === kategori) {
+          hasil.push({ id: doc.id, ...data });
+        }
+      });
+
+      if (hasil.length === 0) {
+        beritaListEl.innerHTML = "<p class='text-center text-gray-500'>Tidak ada berita ditemukan.</p>";
+        return;
+      }
+
+      beritaListEl.innerHTML = hasil.map(berita => `
+        <div class="bg-white shadow-md rounded-lg overflow-hidden mb-5">
+          <img src="${berita.gambar}" alt="${berita.judul}" class="w-full h-48 object-cover"/>
+          <div class="p-4">
+            <h2 class="text-xl font-semibold text-green-700 mb-2">${berita.judul}</h2>
+            <p class="text-gray-700 text-sm mb-3">${berita.deskripsi.slice(0, 120)}...</p>
+            <a href="detailberita.html?id=${berita.id}" class="text-green-600 hover:underline text-sm">Baca Selengkapnya</a>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    kategoriLinks.forEach(link => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        const kategori = link.dataset.kategori;
+        loadBerita(kategori);
+      });
+    });
+
+    loadBerita();
+  </script>
+</head>
+<body class="bg-gray-50 p-4 min-h-screen">
+  <nav class="flex flex-wrap justify-center gap-2 mb-6">
+    <button class="kategori-link bg-green-100 text-green-700 px-4 py-2 rounded" data-kategori="">Semua</button>
+    <button class="kategori-link bg-green-100 text-green-700 px-4 py-2 rounded" data-kategori="Hari Ini">Hari Ini</button>
+    <button class="kategori-link bg-green-100 text-green-700 px-4 py-2 rounded" data-kategori="Populer">Populer</button>
+    <button class="kategori-link bg-green-100 text-green-700 px-4 py-2 rounded" data-kategori="Nasional">Nasional</button>
+    <button class="kategori-link bg-green-100 text-green-700 px-4 py-2 rounded" data-kategori="Internasional">Internasional</button>
+  </nav>
+
+  <main id="beritaList" class="max-w-xl mx-auto">
+    <!-- Daftar berita akan ditampilkan di sini -->
+  </main>
+</body>
+</html>
