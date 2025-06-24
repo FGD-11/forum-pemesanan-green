@@ -1,8 +1,7 @@
-<!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Upload Berita</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script type="module">
@@ -14,7 +13,6 @@
       serverTimestamp,
     } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
 
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
     const firebaseConfig = {
       apiKey: "AIzaSyADOJKmKBSoxPrglsZI_jT5Zlslo8Xy76k",
       authDomain: "hallowed-tea-458904-c3.firebaseapp.com",
@@ -46,7 +44,6 @@
           return;
         }
 
-        // Upload gambar ke Imgur
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64Image = reader.result.split(",")[1];
@@ -72,7 +69,6 @@
               return;
             }
 
-            // Simpan ke Firestore
             await addDoc(collection(db, "news"), {
               judul,
               deskripsi,
@@ -94,22 +90,40 @@
     });
   </script>
 </head>
-<body class="bg-gray-50 p-6">
-  <div class="max-w-xl mx-auto bg-white rounded-lg shadow p-6">
+<body class="bg-gray-50 p-6 min-h-screen flex items-center justify-center">
+  <div class="max-w-xl w-full bg-white rounded-lg shadow p-6">
     <h1 class="text-2xl font-semibold text-center text-green-700 mb-6">Upload Berita Baru</h1>
-    <form id="formBerita" class="space-y-4">
+    <form id="formBerita" class="space-y-5" novalidate>
       <div>
-        <label class="block font-medium">Judul Berita</label>
-        <input type="text" name="judul" class="w-full border p-2 rounded" required />
+        <label for="judul" class="block font-medium mb-1">Judul Berita</label>
+        <input
+          type="text"
+          id="judul"
+          name="judul"
+          class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+          autocomplete="off"
+        />
       </div>
       <div>
-        <label class="block font-medium">Deskripsi</label>
-        <textarea name="deskripsi" rows="4" class="w-full border p-2 rounded" required></textarea>
+        <label for="deskripsi" class="block font-medium mb-1">Deskripsi</label>
+        <textarea
+          id="deskripsi"
+          name="deskripsi"
+          rows="4"
+          class="w-full border border-gray-300 p-2 rounded resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+        ></textarea>
       </div>
       <div>
-        <label class="block font-medium">Kategori</label>
-        <select name="kategori" class="w-full border p-2 rounded" required>
-          <option value="">-- Pilih Kategori --</option>
+        <label for="kategori" class="block font-medium mb-1">Kategori</label>
+        <select
+          id="kategori"
+          name="kategori"
+          class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+        >
+          <option value="" disabled selected>-- Pilih Kategori --</option>
           <option value="Hari Ini">Hari Ini</option>
           <option value="Populer">Populer</option>
           <option value="Nasional">Nasional</option>
@@ -117,13 +131,23 @@
         </select>
       </div>
       <div>
-        <label class="block font-medium">Gambar Berita</label>
-        <input type="file" name="gambar" accept="image/*" class="w-full border p-2 rounded" required />
+        <label for="gambar" class="block font-medium mb-1">Gambar Berita</label>
+        <input
+          type="file"
+          id="gambar"
+          name="gambar"
+          accept="image/*"
+          class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+        />
       </div>
-      <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded">
+      <button
+        type="submit"
+        class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded transition-colors duration-200"
+      >
         Upload Berita
       </button>
-      <p id="notif" class="text-center text-sm mt-2 text-gray-600"></p>
+      <p id="notif" class="text-center text-sm mt-3 text-gray-600 min-h-[1.25rem]"></p>
     </form>
   </div>
 </body>
