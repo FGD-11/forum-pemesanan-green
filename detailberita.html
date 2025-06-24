@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Detail Berita</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc
+    } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyADOJKmKBSoxPrglsZI_jT5Zlslo8Xy76k",
+      authDomain: "hallowed-tea-458904-c3.firebaseapp.com",
+      projectId: "hallowed-tea-458904-c3",
+      storageBucket: "hallowed-tea-458904-c3.firebasestorage.app",
+      messagingSenderId: "593516531927",
+      appId: "1:593516531927:web:04228cd5d8f2130d9fe092",
+      measurementId: "G-N4WQDR1W9D"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const judulEl = document.getElementById("judulBerita");
+    const gambarEl = document.getElementById("gambarBerita");
+    const isiEl = document.getElementById("isiBerita");
+
+    function getIdFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("id");
+    }
+
+    async function tampilkanBerita() {
+      const id = getIdFromURL();
+      if (!id) {
+        isiEl.innerHTML = "<p class='text-center text-red-600'>ID berita tidak ditemukan di URL.</p>";
+        return;
+      }
+
+      const docRef = doc(db, "news", id);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        judulEl.textContent = data.judul || "Tanpa Judul";
+        gambarEl.src = data.gambar || "";
+        isiEl.innerHTML = (data.deskripsi || "").replace(/\n/g, "<br>");
+      } else {
+        isiEl.innerHTML = "<p class='text-center text-red-600'>Berita tidak ditemukan.</p>";
+      }
+    }
+
+    tampilkanBerita();
+  </script>
+</head>
+<body class="bg-gray-50 p-4 min-h-screen">
+  <main class="max-w-2xl mx-auto bg-white shadow-lg rounded-lg p-5">
+    <h1 id="judulBerita" class="text-2xl font-bold text-green-700 mb-4 text-center">Memuat...</h1>
+    <img id="gambarBerita" alt="Gambar Berita" class="w-full max-h-80 object-cover mb-4 rounded">
+    <div id="isiBerita" class="text-gray-800 leading-relaxed text-justify">
+      <!-- Isi berita akan ditampilkan di sini -->
+    </div>
+  </main>
+</body>
+</html>
